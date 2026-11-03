@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
-import { getStoredAdminId, socket } from "../src/constants";
+import { getStoredAdminId, getStoredAdminUsername, socket } from "../src/constants";
 
 type PaymentMode = "UPI" | "Cash" | "Card" | "Other";
 
@@ -17,6 +17,7 @@ type ExpensePayload = Omit<ExpenseForm, "amount"> & {
   amount: number;
   groupId: string | number;
   userId: string;
+  msgUsername: string | null;
 };
 
 type ExpensesProps = {
@@ -80,6 +81,7 @@ export default function Expenses({ groupId, groupName, onClose }: ExpensesProps)
       location: expenseForm.location.trim(),
       groupId,
       userId,
+      msgUsername: getStoredAdminUsername() || null,
     });
   }
 

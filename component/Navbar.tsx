@@ -9,7 +9,7 @@ import Home from "../pages/Home";
 import Notification from "../pages/Notification";
 import Settings from "../pages/Settings";
 import { apiFetch, debounce } from "../src/constants";
-import { ExchangeIcon, SearchIcon } from "./icon";
+import { ExchangeIcon, SearchIcon } from "./icon.tsx";
 
 const navigationItems = [
   { label: "Home", path: "/" },

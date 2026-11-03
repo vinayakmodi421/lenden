@@ -1,7 +1,10 @@
-export const api_url = "http://localhost:5000/api";
+export const baseUrl = "http://localhost:5000"
+
+export const api_url = `${baseUrl}/api`;
 import { io } from "socket.io-client";
 
-export const socket = io("http://localhost:5000",{
+export const socket_url = baseUrl
+export const socket = io(socket_url, {
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -11,7 +14,7 @@ export const socket = io("http://localhost:5000",{
 });
 
 socket.on("connect_error", async (error) => {
-    console.log("error" , error)
+    console.log("error", error)
     if (error.message === "ACCESS_TOKEN_EXPIRED" || error.message === "Invalid token" || error.message === "Access token missing") {
         try {
             const response = await fetch(
@@ -36,9 +39,9 @@ if (!storedUser) {
     socket.io.engine.on("ping", () => {
         console.log("PING");
     });
-    
+
     socket.io.engine.on("pong", () => {
-      console.log("PONG");
+        console.log("PONG");
     });
 };
 
@@ -82,33 +85,33 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
 }
 
 export function getStoredAdminId() {
-  const storedUser = localStorage.getItem("user");
-  if (!storedUser) return "";
-  try {
-    const parsedUser = JSON.parse(storedUser)
-    return parsedUser.id 
-  } catch {
-    return "";
-  }
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) return "";
+    try {
+        const parsedUser = JSON.parse(storedUser)
+        return parsedUser.id
+    } catch {
+        return "";
+    }
 }
 
 export function getStoredAdminUsername() {
-  const storedUser = localStorage.getItem("user");
-  if (!storedUser) return "";
-  try {
-    const parsedUser = JSON.parse(storedUser)
-    return parsedUser.username
-  } catch {
-    return "";
-  }
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) return "";
+    try {
+        const parsedUser = JSON.parse(storedUser)
+        return parsedUser.username
+    } catch {
+        return "";
+    }
 }
 
-export function debounce(callback: Function, delay: number) {   
-  let timer: ReturnType<typeof setTimeout>;
-  return function (...args: any[]) {    
-      clearTimeout(timer);
-      timer = setTimeout(() => {     
-          callback(...args);
+export function debounce(callback: Function, delay: number) {
+    let timer: ReturnType<typeof setTimeout>;
+    return function (...args: any[]) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            callback(...args);
         }, delay);
     };
 }

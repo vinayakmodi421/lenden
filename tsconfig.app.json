@@ -29,6 +29,6 @@
     "src",
     "component",
     "pages",
-    "dist/assets/Icon.tsx"
+    "component/Icon.tsx"
   ]
 }

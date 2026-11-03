@@ -12,20 +12,41 @@ export type ChatGroup = {
     name: string;
     description?: string;
     profilePic: string | null;
+    adminId?: number | string;
+    totalMembers?: number;
+    deactivated?: boolean;
+    lastMessageId?: number | string | null;
+    createdAt?: string;
+    updatedAt?: string;
+    lastMessage?: ChatLatestMessage | null;
+};
+
+export type ChatLatestMessage = {
+    id: number | string;
+    groupId: number | string;
+    userId: number | string;
+    text: string;
+    status: string;
+    messageType: string;
+    deactivated?: boolean;
+    createdAt: string;
+    updatedAt: string;
+    msgUsername?: string | null;
 };
 
 export type ChatGroupMembership = {
-    amountPaid: number;
-    createdAt: string;
-    deactivated: boolean;
+    amountPaid?: number;
+    createdAt?: string;
+    deactivated?: boolean;
     group: ChatGroup;
-    groupId: string | number;
-    id: string | number;
-    isAccepted: boolean;
-    isAdmin: boolean;
-    owedAmount: number;
-    updatedAt: string;
-    userId: string | number;
+    groupId?: string | number;
+    id?: string | number;
+    isAccepted?: boolean;
+    isAdmin?: boolean;
+    owedAmount?: number;
+    updatedAt?: string;
+    userId?: string | number;
+    latestMsg?: ChatLatestMessage | null;
 };
 
 type ChatBoxProps = {
@@ -40,15 +61,13 @@ type Message = {
     _id?: number | string;
     groupId: number | string;
     userId: number | string;
-    user?: {
-        username?: string;
-    };
     text: string;
     status: string;
     messageType: string;
     deactivated?: boolean;
     createdAt?: string;
     updatedAt?: string;
+    msgUsername?: string | null;
 };
 
 type SearchUser = {
@@ -70,18 +89,17 @@ function getUsernameDisplay(user: SearchUser) {
 
 
 async function fetchMessages(groupId: string): Promise<Message[]> {
-    const response: any = await apiFetch(`/message/${groupId}`);
-    const result = await response.json().catch(() => ({}));
+    const response = await apiFetch(`/message/${groupId}`);
+    const result = await response.json().catch(() => ({})) as { success?: boolean; message?: string; error?: string; data: Message[] };
 
     if (!response.ok || result.success === false) {
         throw new Error(result.message || result.error || "Could not fetch messages.");
     }
-    return result.data
+    return result.data;
 }
 
 function getMessageId(message: Message) {
     if (message.id !== undefined && message.id !== null && message.id !== "") return String(message.id);
-    if (message._id !== undefined && message._id !== null && message._id !== "") return String(message._id);
     return "";
 }
 
@@ -100,8 +118,8 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
     const [toast, setToast] = useState<Toast | null>(null);
     const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const messageListRef = useRef<HTMLDivElement>(null);
-    const groupId: any = group.id;
-    const queryClient: any = useQueryClient();
+    const groupId = group.id as string | number | undefined | any;
+    const queryClient = useQueryClient();
 
     function showToast(message: string, isError = false) {
         if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -115,20 +133,18 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
 
     const searchUsernames = useMemo(() => debounce(async (query: string) => {
         const trimmedQuery = query.trim();
-
         if (!trimmedQuery) {
             setMemberSearchResults([]);
             setIsSearchingMembers(false);
             return;
         }
-
         setIsSearchingMembers(true);
         try {
-            const response: any = await apiFetch(`/search?username=${encodeURIComponent(trimmedQuery)}`);
-            const result = await response.json().catch(() => ({}));
+            const response = await apiFetch(`/search?username=${encodeURIComponent(trimmedQuery)}`);
+            const result = await response.json().catch(() => ({})) as { data: SearchUser[] };
             if (!response.ok) throw new Error("Could not search users.");
             setMemberSearchResults(result.data);
-        } catch (e) {
+        } catch {
             setMemberSearchResults([]);
         } finally {
             setIsSearchingMembers(false);
@@ -140,7 +156,7 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         queryFn: () => fetchMessages(groupId),
         enabled: Boolean(groupId),
     });
-
+    // console.log(messages)
     useEffect(() => {
         const messageList = messageListRef.current;
         if (!messageList || isLoading) return;
@@ -168,10 +184,10 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
             showToast("Unable to send request. Please sign in again.", true);
             return;
         }
-        let parsedUser: any = JSON.parse(storedUser);
-        const receiverUserId = user.id
+        const parsedUser = JSON.parse(storedUser) as { username?: string };
+        const receiverUserId = user.id;
         const userName = parsedUser.username ?? "";
-        const obj: any = {
+        const obj = {
             senderUserId: getStoredAdminId(),
             receiverUserId,
             groupId: groupId,
@@ -188,17 +204,16 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         if (!trimmedMessage || !groupId) return;
         const id = getStoredAdminId();
         if (!id) return;
-        const obj: any = {
+        const msgUsername = getStoredAdminUsername();
+        const obj: Message = {
             groupId,
             userId: id,
             text: trimmedMessage,
             status: "sent",
             messageType: "text",
-            user : {
-                username : getStoredAdminUsername()
-            },
+            msgUsername: msgUsername || null,
         };
-        queryClient.setQueryData(["messages", groupId], (oldData: any) => {
+        queryClient.setQueryData(["messages", groupId], (oldData: Message[] | undefined) => {
             if (!oldData) return [obj];
             return [...oldData, obj];
         });
@@ -206,12 +221,13 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         setMessage("");
     }
     useEffect(() => {
-        const messageHandle = (payload: any) => {
+        const messageHandle = (payload: unknown) => {
             if (!payload || typeof payload !== "object") return;
             const incomingMessage = payload
             queryClient.setQueryData(["messages", groupId], (current: Message[] = []) => {
                 return [...current, incomingMessage as Message];
             });
+            console.log(payload)
         };
 
         socket.on("text", messageHandle);
@@ -226,7 +242,7 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         setIsExitingGroup(true);
         setExitGroupError("");
         try {
-            const response: any = await apiFetch(`/exitMember/${encodeURIComponent(membership.id)}`, {
+            const response = await apiFetch(`/exitMember/${encodeURIComponent(membership.id)}`, {
                 method: "POST",
             });
             const result = await response.json().catch(() => ({}));
@@ -384,7 +400,7 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
             {exitGroupError && <p className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700" role="alert">{exitGroupError}</p>}
             {isExpenseFormOpen && (
                 <Expenses
-                    groupId={membership.groupId}
+                    groupId={membership.groupId ?? groupId ?? ""}
                     groupName={group.name}
                     onClose={() => setIsExpenseFormOpen(false)}
                 />
@@ -415,10 +431,10 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
                         <div
                             className="flex justify-start"
                             data-message-id={messageId || undefined}
-                            key={messageId || `${i}-${currentMessage.user?.username ?? "message"}`}
+                            key={messageId || `${i}-${currentMessage.msgUsername ?? "message"}`}
                         >
                             <div className="w-fit max-w-[80%] sm:max-w-[65%]">
-                                <p className="mb-1 px-1 text-xs font-semibold text-[#71806D]">{getUsernameDisplay(currentMessage.user ?? {})}</p>
+                                <p className="mb-1 px-1 text-xs font-semibold text-[#71806D]">{currentMessage.msgUsername || "Unknown user"}</p>
                                 <div className="flex w-fit max-w-full items-end gap-1.5">
                                     <div className={`inline-flex min-w-0 max-w-[calc(100%-3.5rem)] items-end rounded-2xl rounded-bl-sm py-2.5 pl-4 pr-6 text-sm text-[#354133] ${isFocused
                                         ? "bg-[#F4E8C8] ring-2 ring-[#C8A96B] ring-offset-2 ring-offset-[#FBFCFA]"
