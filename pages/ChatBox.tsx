@@ -131,6 +131,14 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         if (toastTimeout.current) clearTimeout(toastTimeout.current);
     }, []);
 
+    // Emit "seen" whenever this chat is opened or the group changes
+    useEffect(() => {
+        if (!groupId) return;
+        const userId = getStoredAdminId();
+        if (!userId) return;
+        socket.emit("seen", { groupId, userId });
+    }, [groupId]);
+
     const searchUsernames = useMemo(() => debounce(async (query: string) => {
         const trimmedQuery = query.trim();
         if (!trimmedQuery) {
@@ -156,7 +164,7 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
         queryFn: () => fetchMessages(groupId),
         enabled: Boolean(groupId),
     });
-    // console.log(messages)
+    console.log(messages)
     useEffect(() => {
         const messageList = messageListRef.current;
         if (!messageList || isLoading) return;
@@ -222,12 +230,18 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
     }
     useEffect(() => {
         const messageHandle = (payload: unknown) => {
+            console.log("hii")
             if (!payload || typeof payload !== "object") return;
-            const incomingMessage = payload
+            const incomingMessage = payload as Message;
             queryClient.setQueryData(["messages", groupId], (current: Message[] = []) => {
-                return [...current, incomingMessage as Message];
+                return [...current, incomingMessage];
             });
-            console.log(payload)
+            // Acknowledge delivery back to the server
+            console.log(incomingMessage)
+            const msgId = incomingMessage.id ?? incomingMessage._id;
+            if (msgId !== undefined && msgId !== null && msgId !== "") {
+                socket.emit("delivered", { messageId: msgId, groupId, userId: getStoredAdminId() });
+            }
         };
 
         socket.on("text", messageHandle);
@@ -238,7 +252,6 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
 
     async function handleExitGroup() {
         if (!membership.id || isExitingGroup) return;
-
         setIsExitingGroup(true);
         setExitGroupError("");
         try {
@@ -426,19 +439,22 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
                 {messages.map((currentMessage, i) => {
                     const messageId = getMessageId(currentMessage);
                     const isFocused = Boolean(focusMessageId) && messageId === focusMessageId;
+                    const isMine = String(currentMessage.userId) === String(getStoredAdminId());
 
                     return (
                         <div
-                            className="flex justify-start"
+                            className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                             data-message-id={messageId || undefined}
                             key={messageId || `${i}-${currentMessage.msgUsername ?? "message"}`}
                         >
                             <div className="w-fit max-w-[80%] sm:max-w-[65%]">
-                                <p className="mb-1 px-1 text-xs font-semibold text-[#71806D]">{currentMessage.msgUsername || "Unknown user"}</p>
+                                {!isMine && (
+                                    <p className="mb-1 px-1 text-xs font-semibold text-[#71806D]">{currentMessage.msgUsername || "Unknown user"}</p>
+                                )}
                                 <div className="flex w-fit max-w-full items-end gap-1.5">
-                                    <div className={`inline-flex min-w-0 max-w-[calc(100%-3.5rem)] items-end rounded-2xl rounded-bl-sm py-2.5 pl-4 pr-6 text-sm text-[#354133] ${isFocused
-                                        ? "bg-[#F4E8C8] ring-2 ring-[#C8A96B] ring-offset-2 ring-offset-[#FBFCFA]"
-                                        : "bg-[#E7EEE3]"
+                                    <div className={`inline-flex min-w-0 max-w-[calc(100%-3.5rem)] items-end rounded-2xl py-2.5 pl-4 pr-6 text-sm ${isMine
+                                        ? `rounded-br-sm text-white ${isFocused ? "bg-[#4F7A47] ring-2 ring-[#C8A96B] ring-offset-2 ring-offset-[#FBFCFA]" : "bg-[#63765E]"}`
+                                        : `rounded-bl-sm text-[#354133] ${isFocused ? "bg-[#F4E8C8] ring-2 ring-[#C8A96B] ring-offset-2 ring-offset-[#FBFCFA]" : "bg-[#E7EEE3]"}`
                                         }`}>
                                         {currentMessage.messageType?.toLowerCase() === "expense" ? (
                                             <div className="flex min-w-0 items-center gap-3">
@@ -463,7 +479,7 @@ export default function ChatBox({ membership, fallbackImage, onBack, focusMessag
                                                 {formatMessageDate(currentMessage.createdAt)}
                                             </p>
                                         )}
-                                        {currentMessage.status && (
+                                        {isMine && currentMessage.status && (
                                             <MessageStatusIcon status={currentMessage.status} />
                                         )}
                                     </div>

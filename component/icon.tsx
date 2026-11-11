@@ -114,7 +114,7 @@ export function EyeIcon({ crossed }: { crossed: boolean }) {
 export function MessageStatusIcon({ status }: { status: string }) {
   const normalized = status?.toLowerCase();
 
-  if (normalized === "read") {
+  if (normalized === "seen") {
     return (
       <svg aria-label="Read" className="h-4 w-4 text-[#4FA3D1]" fill="none" viewBox="0 0 24 24">
         <path d="m1.5 12.5 5 5L17 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
